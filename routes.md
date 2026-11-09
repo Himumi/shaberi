@@ -1,0 +1,187 @@
+# Routes
+
+## Middlewares
+
+- Authorize
+  - Exclude:
+    - Register
+    - Login
+    - Availability
+  - Logic:
+    - Get token from request header
+      - Return unauthorized status if it is empty
+    - Validate token format
+      - Return unauthorized status if it failed
+    - Parse token
+      - Return unauthorized status if it failed
+    - Get user using MiddlewareService.Authorize service
+      - Return unauthorized status if it is not found
+      - Return internal server error if it failed
+    - Add user to the Context
+
+## Auth
+
+- Register
+  - Method: POST
+  - Path: "/auth/register"
+  - Rate Limit: Yes
+  - JSON:
+    - Username String
+    - Email String
+    - Password String
+  - Status: Created
+  - Logic:
+    - Get input JSON from request body
+      - Return bad request status if the request body is empty
+    - Validate input JSON
+      - Return bad request status if it got an error
+    - Register user using AuthService.Register service
+      - Return conflict status if username has taken
+      - Return conflict status if email has taken
+      - Return internal server error status if it failed
+    - Return created status with login is required
+      if error is Err_JWT_Sign or Err_Credential_Registration error
+    - Return created status with JWT token
+  - Response:
+    - Login: boolean
+    - token: JWT token
+
+- Login
+  - Method: POST
+  - Path: "/auth/login"
+  - Rate Limit: Yes
+  - JSON:
+    - Username String
+    - Email String
+    - Password String
+  - Status: OK
+  - Logic:
+    - Get input JSON from request body
+      - Return bad request status if the request body is empty
+    - Validate input JSON
+      - Return bad request status if it got an error
+    - Lowercase username or email
+    - Get target an IP address from request body
+    - Get JWT Token using AuthService.Login service
+      - Return not found status if user is not found
+      - Return unauthorized status if user's password is wrong
+      - Return locked status if error is Err_Too_Many_Attempts error
+      - Return internal server error status
+    - Return JWT JSON token
+  - Response:
+    - token: JWT token
+- logout
+
+## User
+
+- Get User Profile
+  - Method: GET
+  - Path: "/users/:id"
+  - JSON: Nil
+  - Status: OK
+  - Logic:
+    - Get user_id from the parameter
+    - Validate user_id
+      - Return bad request status if user_id is invalid
+    - Get the current user from Context
+      - Return unauthorized status if the current user is empty
+    - Return the current user if user_id matched to the current user id
+    - Get user using UserService.GetProfileByUserID service
+      - Return not found status if user is not found
+      - Return internal server error status
+    - Return user's profile with username
+
+- List User profiles
+  - Method: GET
+  - Path: "/users?ids=user_id,user_id"
+  - JSON: Nil
+  - Status: OK
+  - Logic:
+    - Get user_ids from the query
+      - Return bad request if user_ids is empty
+    - Validate user_ids
+      - Return bad request if user_id is invalid
+    - Get user's profiles using UserService.ListProfileByUserID service
+    - Return user's profiles with username
+
+- Availability
+  - Method: POST
+  - Path: "/users/availability"
+  - Rate Limit: Yes
+  - JSON:
+    - Type: Email or Username
+    - Value: String
+  - Status: OK
+  - Logic:
+    - Get input JSON from request body
+      - Return bad request status if the request body is empty
+    - Validate input JSON based on the type
+      - Return bad request status if it got an error
+    - If the type is username
+      - Check username availability using UserService.HasUsername
+    - If the type is email
+      - Check email availability using UserService.HasEmail
+    - Check email status if the type is email
+    - Return availability
+  - Response:
+    - Availability: boolean
+
+- Get Me
+  - Method: GET
+  - Path: "/users/me"
+  - JSON: Nil
+  - Status: OK
+  - Logic:
+    - Get the current user from Context
+      - Return unauthorized status if the current user is empty
+    - Return the current user
+
+- Update Me Password
+  - Method: PUT
+  - Path: "/users/me/password"
+  - JSON:
+    - Old_Password String
+    - New_Password String
+  - Status: No Content
+  - Logic:
+    - Get input JSON from request body
+      - Return bad request status if the request body is empty
+    - Validate input JSON
+      - Return bad request status if it got an error
+    - Get the current user from Context
+      - Return unauthorized status if the current user is empty
+    - Update user's password using UserService.UpdatePassword service
+      - Return unauthorized status if user's password is wrong
+      - Return internal server error status
+    - Return OK status
+
+- Update Me Profile
+  - Method: PUT
+  - Path: "/users/me/profile"
+  - JSON:
+    - Name: String
+    - Status: String
+    - Logo: Link String
+  - Logic:
+    - Get input JSON from request body
+      - Return bad request status if the request body is empty
+    - Validate input JSON
+      - return bad request status if it got an error
+    - Get the current user from Context
+      - Return unauthorized status if the current user is empty
+    - Update user's profile using UserService.UpdateProfile service
+      - Return internal server error status
+    - Return updated user's profile
+
+- Delete Me (Later)
+  - Method: DELETE
+  - Path: "/users/me"
+  - JSON: Nil
+  - Status: No Content
+  - Logic:
+    - Get the current user from context
+      - Return unauthorized status if the current user is empty
+    - Delete user from database
+      - Return error if it failed
+    - Send messages to user's conversations
+    - Return No Content status
