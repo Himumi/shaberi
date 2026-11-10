@@ -1,8 +1,11 @@
 package checker
 
 import (
+	"errors"
+	"fmt"
 	"log"
 	"regexp"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/go-playground/validator/v10"
@@ -46,6 +49,53 @@ var customCheckers = []struct {
 	{TagPassword, func(fl validator.FieldLevel) bool {
 		return Password(fl.Field().String())
 	}},
+}
+
+func FormatVarErrors(err error, fieldName string) []string {
+	if len(fieldName) == 0 {
+		fieldName = "This field"
+	}
+
+	fieldErrors, ok := errors.AsType[validator.ValidationErrors](err)
+	if !ok {
+		return []string{err.Error()}
+	}
+
+	var messages []string
+	for _, fe := range fieldErrors {
+		messages = append(messages, FormatError(fe, fieldName))
+	}
+	return messages
+}
+
+func FormatError(fe validator.FieldError, fieldName string) string {
+	tag := fe.Tag()
+	param := fe.Param()
+
+	switch tag {
+	case "uuid", "uuidv4", "uuidv7":
+		return fmt.Sprintf("%s must be a valid UUID.", fieldName)
+	case TagUsername:
+		return fmt.Sprintf("%s must be a valid username.", fieldName)
+	case TagPassword:
+		return fmt.Sprintf("%s must be a valid password.", fieldName)
+	case "required":
+		return fmt.Sprintf("%s is required.", fieldName)
+	case "email":
+		return fmt.Sprintf("%s must be a valid email address.", fieldName)
+	case "min":
+		return fmt.Sprintf("%s must be at least %s.", fieldName, param)
+	case "max":
+		return fmt.Sprintf("%s must not exceed %s.", fieldName, param)
+	case "gte":
+		return fmt.Sprintf("%s must be greater than or equal to %s.", fieldName, param)
+	case "lte":
+		return fmt.Sprintf("%s must be less than or equal to %s.", fieldName, param)
+	case "oneof":
+		return fmt.Sprintf("%s must be one of [%s].", fieldName, strings.ReplaceAll(param, " ", ", "))
+	default:
+		return fmt.Sprintf("%s failed the '%s' validation rule.", fieldName, tag)
+	}
 }
 
 const (

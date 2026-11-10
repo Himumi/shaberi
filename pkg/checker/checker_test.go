@@ -2,6 +2,7 @@ package checker
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -71,5 +72,51 @@ func reportTestUsername(t testing.TB, input string, got, want bool) {
 	if got != want {
 		const format = "Failed validating username: input %s: got %t, want %t"
 		t.Fatalf(format, input, got, want)
+	}
+}
+
+func TestVarErrors(t *testing.T) {
+	cases := []struct {
+		input any
+		tag   string
+		msgs  []string
+	}{
+		{"123", "username", []string{"This field must be a valid username."}},
+		{"123", "password", []string{"This field must be a valid password."}},
+		{"", "required", []string{"This field is required."}},
+		{"invalid@email", "email", []string{"This field must be a valid email address."}},
+		{9, "min=10", []string{"This field must be at least 10."}},
+		{11, "max=10", []string{"This field must not exceed 10."}},
+		{9, "gte=10", []string{"This field must be greater than or equal to 10."}},
+		{"red", "oneof=yellow blue", []string{"This field must be one of [yellow, blue]."}},
+	}
+
+	ch := New()
+	for _, c := range cases {
+		t.Run(c.tag, func(t *testing.T) {
+			err := ch.Var(c.input, c.tag)
+			reportTestVar(t, err, c.tag, c.msgs)
+		})
+	}
+}
+
+func reportTestVar(t testing.TB, err error, tag string, wantMsgs []string) {
+	t.Helper()
+	if err == nil {
+		t.Fatalf("Must return an error for %s tag\n", tag)
+	}
+	msgs := FormatVarErrors(err, "")
+
+	gotLen := len(msgs)
+	wantLen := len(wantMsgs)
+
+	if gotLen != wantLen {
+		t.Fatalf("Invalid messages length: got %d, want %d\n", gotLen, wantLen)
+	}
+	for i, gotMsg := range msgs {
+		wantMsg := wantMsgs[i]
+		if !strings.EqualFold(gotMsg, wantMsg) {
+			t.Fatalf("Invalid message: got %v, want %v\n", gotMsg, wantMsg)
+		}
 	}
 }
