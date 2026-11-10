@@ -2,7 +2,6 @@ package checker
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 )
 
@@ -115,7 +114,7 @@ func reportTestVar(t testing.TB, err error, tag string, wantMsgs []string) {
 	}
 	for i, gotMsg := range msgs {
 		wantMsg := wantMsgs[i]
-		if !strings.EqualFold(gotMsg, wantMsg) {
+		if gotMsg != wantMsg {
 			t.Fatalf("Invalid message: got %v, want %v\n", gotMsg, wantMsg)
 		}
 	}
@@ -158,7 +157,7 @@ func reportTestStruct(t testing.TB, err error, wantMsgs []string) {
 	}
 	for i, gotMsg := range msgs {
 		wantMsg := wantMsgs[i]
-		if !strings.EqualFold(gotMsg, wantMsg) {
+		if gotMsg != wantMsg {
 			t.Fatalf("Invalid message: got %v, want %v\n", gotMsg, wantMsg)
 		}
 	}
