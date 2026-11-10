@@ -120,3 +120,46 @@ func reportTestVar(t testing.TB, err error, tag string, wantMsgs []string) {
 		}
 	}
 }
+
+func TestStructErrors(t *testing.T) {
+	cases := []struct {
+		input any
+		msgs  []string
+	}{
+		{struct {
+			Username string `validate:"username"`
+			Password string `validate:"password"`
+		}{"123", "invalidpassword"}, []string{"Username must be a valid username.", "Password must be a valid password."}},
+		{struct {
+			Username string `validate:"required,username"`
+			Password string `validate:"password"`
+		}{"", "invalidpassword"}, []string{"Username is required.", "Password must be a valid password."}},
+	}
+
+	ch := New()
+	for _, c := range cases {
+		err := ch.Struct(c.input)
+		reportTestStruct(t, err, c.msgs)
+	}
+}
+
+func reportTestStruct(t testing.TB, err error, wantMsgs []string) {
+	t.Helper()
+	if err == nil {
+		t.Fatalf("Must return an error for struct\n")
+	}
+	msgs := FormatStructErrors(err)
+
+	gotLen := len(msgs)
+	wantLen := len(wantMsgs)
+
+	if gotLen != wantLen {
+		t.Fatalf("Invaliid messages length: got %d, want %d\n", gotLen, wantLen)
+	}
+	for i, gotMsg := range msgs {
+		wantMsg := wantMsgs[i]
+		if !strings.EqualFold(gotMsg, wantMsg) {
+			t.Fatalf("Invalid message: got %v, want %v\n", gotMsg, wantMsg)
+		}
+	}
+}

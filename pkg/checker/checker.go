@@ -51,6 +51,19 @@ var customCheckers = []struct {
 	}},
 }
 
+func FormatStructErrors(err error) []string {
+	fieldErrors, ok := errors.AsType[validator.ValidationErrors](err)
+	if !ok {
+		return []string{err.Error()}
+	}
+
+	var messages []string
+	for _, fe := range fieldErrors {
+		messages = append(messages, FormatError(fe, fe.Field()))
+	}
+	return messages
+}
+
 func FormatVarErrors(err error, fieldName string) []string {
 	if len(fieldName) == 0 {
 		fieldName = "This field"
