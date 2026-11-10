@@ -40,3 +40,20 @@ func Generate(password string) ([]byte, error) {
 
 	return bcrypt.GenerateFromPassword([]byte(password), CostInt)
 }
+
+// Verify an encrypted password with the input
+//
+// Possible Errors:
+//
+//   - ErrInvalidPassword
+//   - bcrypt.CompareHashAndPassword's Errors
+func Verify(hashedPassword, input string) error {
+	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(input))
+	if err != nil {
+		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+			return ErrInvalidPassword
+		}
+		return err
+	}
+	return nil
+}

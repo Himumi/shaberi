@@ -40,3 +40,31 @@ func TestGenerate(t *testing.T) {
 		}
 	})
 }
+
+func TestVerify(t *testing.T) {
+	t.Run("Succeeds", func(t *testing.T) {
+		pass := "ValidPassword"
+
+		hashed, err := Generate(pass)
+		if err != nil {
+			t.Fatalf("Failed generating password: %v\n", err)
+		}
+
+		if err := Verify(string(hashed), pass); err != nil {
+			t.Fatalf("Invalid Password: %v\n", err)
+		}
+	})
+	t.Run("Fails", func(t *testing.T) {
+		pass := "ValidPassword"
+
+		hashed, err := Generate(pass)
+		if err != nil {
+			t.Fatalf("Failed generating password: %v\n", err)
+		}
+
+		err = Verify(string(hashed), "InvalidPassword")
+		if !errors.Is(err, ErrInvalidPassword) {
+			t.Fatalf("Invalid error: %v\n", err)
+		}
+	})
+}
