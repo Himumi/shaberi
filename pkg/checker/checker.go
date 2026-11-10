@@ -4,7 +4,49 @@ import (
 	"log"
 	"regexp"
 	"unicode/utf8"
+
+	"github.com/go-playground/validator/v10"
 )
+
+func New() Checker {
+	val := validator.New()
+
+	// Register custom tags
+	for _, cc := range customCheckers {
+		val.RegisterValidation(cc.Tag, cc.Validator)
+	}
+
+	return Checker{val}
+}
+
+type Checker struct {
+	val *validator.Validate
+}
+
+func (c *Checker) Struct(input any) error {
+	return c.val.Struct(input)
+}
+
+func (c *Checker) Var(field any, tag string) error {
+	return c.val.Var(field, tag)
+}
+
+type Validator interface {
+	Struct(input any) error
+	Var(field any, tag string) error
+}
+
+var customCheckers = []struct {
+	Tag       string
+	Validator func(fl validator.FieldLevel) bool
+}{
+	{TagUsername, func(fl validator.FieldLevel) bool {
+		return Username(fl.Field().String())
+	}},
+	{TagPassword, func(fl validator.FieldLevel) bool {
+		return Password(fl.Field().String())
+	}},
+}
 
 const (
 	CharDigit     = `\d`
@@ -16,6 +58,8 @@ const (
 	MaxPassword   = 20
 	MinUsername   = 6
 	MaxUsername   = 16
+	TagUsername   = "username"
+	TagPassword   = "password"
 )
 
 // Pre-compiled Regexes,
