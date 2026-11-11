@@ -2,6 +2,7 @@ package store
 
 import (
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func New(db *gorm.DB) *Store {
@@ -28,4 +29,10 @@ func (s *Store) Migrate(models ...any) error {
 
 func (s *Store) DropTable(tables ...any) error {
 	return s.DB().Migrator().DropTable(tables...)
+}
+
+func (s *Store) SetSilentMode() {
+	s.db = s.DB().Session(&gorm.Session{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
 }

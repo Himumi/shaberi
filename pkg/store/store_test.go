@@ -53,3 +53,17 @@ func TestMigrateAndDropTable(t *testing.T) {
 		t.Error("expected table TestModel to be dropped")
 	}
 }
+
+func TestSetSilentMode(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("failed to connect database: %v", err)
+	}
+
+	storeDB := New(db)
+
+	storeDB.SetSilentMode()
+	if storeDB.DB() == nil {
+		t.Error("expected DB instance to remain valid after setting silent mode")
+	}
+}
