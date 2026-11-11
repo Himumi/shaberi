@@ -90,3 +90,14 @@ type Profile struct {
 	Logo   string
 	UserID uuid.UUID
 }
+
+var ErrRequiredField = errors.New("This field is required")
+
+// Possible Errors:
+//   - ErrRequiredField
+func (p *Profile) BeforeCreate(tx *gorm.DB) error {
+	if p.UserID == uuid.Nil() {
+		return ErrRequiredField
+	}
+	return nil
+}

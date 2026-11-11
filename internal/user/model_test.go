@@ -151,3 +151,29 @@ func SetupTestDB(t *testing.T) *gorm.DB {
 
 	return db
 }
+
+func TestProfileBeforeCreate(t *testing.T) {
+	t.Run("Succeeds", func(t *testing.T) {
+		profile := &user.Profile{
+			Name:   "My name",
+			Status: "Active",
+			UserID: uuid.NewV4(),
+		}
+
+		err := profile.BeforeCreate(nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("Fails when User ID is empty", func(t *testing.T) {
+		profile := &user.Profile{
+			Name:   "My name",
+			Status: "Active",
+			UserID: uuid.Nil(),
+		}
+
+		err := profile.BeforeCreate(nil)
+		if err != nil {
+			assert.ErrorIs(t, err, user.ErrRequiredField)
+		}
+	})
+}
