@@ -21,3 +21,11 @@ type Store struct {
 func (s *Store) DB() *gorm.DB {
 	return s.db
 }
+
+func (s *Store) Migrate(models ...any) error {
+	return s.DB().AutoMigrate(models...)
+}
+
+func (s *Store) DropTable(tables ...any) error {
+	return s.DB().Migrator().DropTable(tables...)
+}
