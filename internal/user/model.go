@@ -82,3 +82,11 @@ func (u *User) BeforeUpdate(tx *gorm.DB) error {
 
 	return nil
 }
+
+type Profile struct {
+	gorm.Model
+	Name   string
+	Status string
+	Logo   string
+	UserID uuid.UUID
+}
