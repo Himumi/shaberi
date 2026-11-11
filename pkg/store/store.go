@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -105,4 +106,22 @@ func ConnectPool(ctx context.Context, dsn string, poolCfg PoolConfig, opts ...go
 	}
 
 	return db, nil
+}
+
+// Connect to the redis
+//
+// Possible Errors:
+//   - ErrDBUnreachable
+func ConnectCache(ctx context.Context, opt *redis.Options) (*redis.Client, error) {
+	rdb := redis.NewClient(opt)
+
+	ctx, cancelCtx := context.WithTimeout(ctx, 5*time.Second)
+	defer cancelCtx()
+
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		_ = rdb.Close()
+		return nil, ErrDBUnreachable
+	}
+
+	return rdb, nil
 }

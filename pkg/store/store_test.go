@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alicebob/miniredis/v2"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -131,6 +133,46 @@ func TestConnectPool(t *testing.T) {
 
 		if err := sqlDB.Ping(); err != nil {
 			t.Errorf("expected ping to succeed: %v", err)
+		}
+	})
+}
+
+func TestConnectCache(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		mr := miniredis.RunT(t)
+
+		opt, err := redis.ParseURL("redis://" + mr.Addr())
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		client, err := ConnectCache(t.Context(), opt)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		defer client.Close()
+
+		if client == nil {
+			t.Fatal("expected redis client to be non-nil")
+		}
+	})
+
+	t.Run("Unreachable server", func(t *testing.T) {
+		ctx, cancelCtx := context.WithCancel(t.Context())
+		cancelCtx()
+
+		opt, err := redis.ParseURL("redis://127.0.0.1:1")
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		client, err := ConnectCache(ctx, opt)
+		if err == nil {
+			t.Fatal("expected connection error, got nil")
+		}
+		if client != nil {
+			client.Close()
+			t.Fatal("expected nil client on connection failure")
 		}
 	})
 }
