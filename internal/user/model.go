@@ -1,6 +1,7 @@
 package user
 
 import (
+	"errors"
 	"uuid"
 
 	"github.com/Himumi/shaberi/pkg/phash"
@@ -31,6 +32,53 @@ func (u *User) BeforeCreate(tx *gorm.DB) error {
 		return err
 	}
 	u.Hash = string(hashed)
+
+	return nil
+}
+
+var (
+	ErrEmptyUpdateData  = errors.New("Update data is empty")
+	ErrCannotModifyData = errors.New("Cannot to update this data")
+	ErrInvalidType      = errors.New("Invalid type")
+	FieldID             = "ID"
+	FieldUsername       = "Username"
+	FieldEmail          = "Email"
+	FieldHash           = "Hash"
+	ForbiddenFields     = []string{FieldID, FieldUsername, FieldEmail}
+)
+
+// Possible Errors:
+//   - ErrEmptyUpdateData
+//   - ErrCannotModifyData
+//   - ErrInvalidType
+//   - ErrTooShort
+//   - ErrTooLong
+//   - bcrypt.GenerateFromPassword's Errors
+func (u *User) BeforeUpdate(tx *gorm.DB) error {
+	values, ok := tx.Statement.Dest.(map[string]any)
+	if !ok {
+		return ErrEmptyUpdateData
+	}
+
+	for _, field := range ForbiddenFields {
+		if tx.Statement.Changed(field) {
+			return ErrCannotModifyData
+		}
+	}
+
+	if tx.Statement.Changed(FieldHash) {
+		value, ok := values[FieldHash].(string)
+		if !ok {
+			return ErrInvalidType
+		}
+
+		hashed, err := phash.Generate(value)
+		if err != nil {
+			return err
+		}
+
+		tx.Statement.SetColumn(FieldHash, string(hashed))
+	}
 
 	return nil
 }

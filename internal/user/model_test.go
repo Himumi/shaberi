@@ -6,7 +6,11 @@ import (
 
 	"github.com/Himumi/shaberi/internal/user"
 	"github.com/Himumi/shaberi/pkg/phash"
+	"github.com/Himumi/shaberi/pkg/store"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
 func TestUserBeforeCreate(t *testing.T) {
@@ -62,4 +66,88 @@ func TestUserBeforeCreate(t *testing.T) {
 			assert.ErrorIs(t, err, phash.ErrTooShort)
 		}
 	})
+}
+
+func TestUserBeforeUpdate(t *testing.T) {
+	db := SetupTestDB(t)
+
+	t.Run("Fails Update data is empty (map[string]any)", func(t *testing.T) {
+		data := &user.User{}
+		tx := db.Model(data).Updates(user.User{Username: "newname"})
+
+		err := data.BeforeUpdate(tx)
+		if err != nil {
+			assert.ErrorIs(t, err, user.ErrEmptyUpdateData)
+		}
+	})
+
+	t.Run("Fails Updating forbidden fields", func(t *testing.T) {
+		cases := []struct {
+			data map[string]any
+		}{
+			{data: map[string]any{
+				user.FieldID: uuid.NewV4(),
+			}},
+			{data: map[string]any{
+				user.FieldUsername: "newusername",
+			}},
+			{data: map[string]any{
+				user.FieldEmail: "newemail@email.com",
+			}},
+		}
+
+		for _, c := range cases {
+			data := &user.User{}
+			tx := db.Model(data).Updates(c.data)
+
+			err := data.BeforeUpdate(tx)
+			if err != nil {
+				assert.ErrorIs(t, err, user.ErrCannotModifyData)
+			}
+		}
+	})
+
+	t.Run("Fails updating invalid password type (string)", func(t *testing.T) {
+		data := &user.User{}
+		tx := db.Model(data).Updates(map[string]any{
+			user.FieldHash: 123456,
+		})
+
+		err := data.BeforeUpdate(tx)
+		if err != nil {
+			assert.ErrorIs(t, err, user.ErrInvalidType)
+		}
+	})
+
+	t.Run("Succeeds hashing updated password", func(t *testing.T) {
+		data := &user.User{}
+		rawPassword := "NewPassword123!"
+
+		tx := db.Model(data).Updates(map[string]any{
+			user.FieldHash: rawPassword,
+		})
+
+		err := data.BeforeUpdate(tx)
+		assert.NoError(t, err)
+
+		updatedValues := tx.Statement.Dest.(map[string]any)
+		hashed, ok := updatedValues[user.FieldHash].(string)
+
+		require.True(t, ok)
+		assert.NotEqual(t, rawPassword, hashed)
+		assert.NotEmpty(t, hashed)
+
+		err = phash.Verify(hashed, rawPassword)
+		assert.NoError(t, err)
+	})
+}
+
+func SetupTestDB(t *testing.T) *gorm.DB {
+	db, err := gorm.Open(sqlite.Open(":memory:"), store.SilentDB)
+	require.NoError(t, err)
+
+	err = db.AutoMigrate(&user.User{})
+	require.NoError(t, err)
+
+	return db
 }
