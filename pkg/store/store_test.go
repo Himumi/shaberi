@@ -26,7 +26,7 @@ func TestNewAndDB(t *testing.T) {
 		t.Error("expected DB instance to not be nil")
 	}
 
-	storeDB := New(db)
+	storeDB := New(db, nil)
 	var _ Storer = storeDB
 }
 
@@ -36,7 +36,7 @@ func TestMigrateAndDropTable(t *testing.T) {
 		t.Fatalf("failed to connect database: %v", err)
 	}
 
-	storeDB := New(db)
+	storeDB := New(db, nil)
 
 	// Test AutoMigrate
 	err = storeDB.Migrate(&TestModel{})
@@ -60,17 +60,63 @@ func TestMigrateAndDropTable(t *testing.T) {
 }
 
 func TestSetSilentMode(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-	if err != nil {
-		t.Fatalf("failed to connect database: %v", err)
-	}
+	t.Run("both database and redis client active", func(t *testing.T) {
+		db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+		if err != nil {
+			t.Fatalf("failed to connect database: %v", err)
+		}
 
-	storeDB := New(db)
+		mr := miniredis.RunT(t)
+		rdb := redis.NewClient(&redis.Options{
+			Addr: mr.Addr(),
+		})
+		defer rdb.Close()
 
-	storeDB.SetSilentMode()
-	if storeDB.DB() == nil {
-		t.Error("expected DB instance to remain valid after setting silent mode")
-	}
+		store := New(db, rdb)
+		store.SetSilentMode()
+
+		if store.DB() == nil {
+			t.Error("expected DB instance to remain valid")
+		}
+		if store.RDB() == nil {
+			t.Error("expected RDB instance to remain valid")
+		}
+	})
+
+	t.Run("only database, redis is nil", func(t *testing.T) {
+		db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+		if err != nil {
+			t.Fatalf("failed to connect database: %v", err)
+		}
+
+		store := New(db, nil)
+		store.SetSilentMode()
+
+		if store.DB() == nil {
+			t.Error("expected DB instance to remain valid")
+		}
+		if store.RDB() != nil {
+			t.Error("expected RDB instance to be nil")
+		}
+	})
+
+	t.Run("only redis, database is nil", func(t *testing.T) {
+		mr := miniredis.RunT(t)
+		rdb := redis.NewClient(&redis.Options{
+			Addr: mr.Addr(),
+		})
+		defer rdb.Close()
+
+		store := New(nil, rdb)
+		store.SetSilentMode()
+
+		if store.DB() != nil {
+			t.Error("expected DB instance to be nil")
+		}
+		if store.RDB() == nil {
+			t.Error("expected RDB instance to remain valid")
+		}
+	})
 }
 
 func TestConnectPool(t *testing.T) {

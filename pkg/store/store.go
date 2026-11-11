@@ -11,22 +11,29 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-func New(db *gorm.DB) *Store {
-	return &Store{db}
+func New(db *gorm.DB, rdb *redis.Client) *Store {
+	return &Store{db, rdb}
 }
 
 type Storer interface {
 	DB() *gorm.DB
 	Migrate(models ...any) error
 	DropTable(tables ...any) error
+
+	RDB() *redis.Client
 }
 
 type Store struct {
-	db *gorm.DB
+	db  *gorm.DB
+	rdb *redis.Client
 }
 
 func (s *Store) DB() *gorm.DB {
 	return s.db
+}
+
+func (s *Store) RDB() *redis.Client {
+	return s.rdb
 }
 
 func (s *Store) Migrate(models ...any) error {
@@ -37,10 +44,22 @@ func (s *Store) DropTable(tables ...any) error {
 	return s.DB().Migrator().DropTable(tables...)
 }
 
+// For testing purposes
 func (s *Store) SetSilentMode() {
-	s.db = s.DB().Session(&gorm.Session{
-		Logger: logger.Default.LogMode(logger.Silent),
-	})
+	if s.DB() != nil {
+		s.db = s.DB().Session(&gorm.Session{
+			Logger: logger.Default.LogMode(logger.Silent),
+		})
+	}
+	if s.RDB() != nil {
+		redis.SetLogger(silentLogger{})
+	}
+}
+
+type silentLogger struct{}
+
+func (silentLogger) Printf(ctx context.Context, format string, v ...any) {
+	// Do nothing, effectively disabling logging
 }
 
 var SilentDB = &gorm.Config{
