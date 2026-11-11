@@ -101,3 +101,23 @@ func (p *Profile) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
+
+const (
+	FieldUserID = "UserID"
+	FieldName   = "Name"
+	FieldStatus = "Status"
+	FieldLogo   = "Logo"
+)
+
+var ForbiddenProfileFields = []string{FieldUserID, FieldID}
+
+// Possible Errors:
+//   - ErrCannotModifyData
+func (p *Profile) BeforeUpdate(tx *gorm.DB) error {
+	for _, field := range ForbiddenProfileFields {
+		if tx.Statement.Changed(field) {
+			return ErrCannotModifyData
+		}
+	}
+	return nil
+}

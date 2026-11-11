@@ -146,7 +146,7 @@ func SetupTestDB(t *testing.T) *gorm.DB {
 	db, err := gorm.Open(sqlite.Open(":memory:"), store.SilentDB)
 	require.NoError(t, err)
 
-	err = db.AutoMigrate(&user.User{})
+	err = db.AutoMigrate(&user.User{}, &user.Profile{})
 	require.NoError(t, err)
 
 	return db
@@ -174,6 +174,42 @@ func TestProfileBeforeCreate(t *testing.T) {
 		err := profile.BeforeCreate(nil)
 		if err != nil {
 			assert.ErrorIs(t, err, user.ErrRequiredField)
+		}
+	})
+}
+
+func TestProfileBeforeUpdate(t *testing.T) {
+	db := SetupTestDB(t)
+
+	t.Run("Succeeds", func(t *testing.T) {
+		profile := &user.Profile{}
+		tx := db.Model(profile).Updates(map[string]any{
+			user.FieldName:   "New profile name",
+			user.FieldStatus: "Active",
+		})
+
+		err := profile.BeforeUpdate(tx)
+		assert.NoError(t, err)
+	})
+
+	t.Run("Fails Updating forbiddin fields", func(t *testing.T) {
+		cases := []map[string]any{
+			{
+				user.FieldID: "new id",
+			},
+			{
+				user.FieldUserID: uuid.NewV4(),
+			},
+		}
+
+		for _, c := range cases {
+			profile := &user.Profile{}
+			tx := db.Model(profile).Updates(c)
+
+			err := profile.BeforeUpdate(tx)
+			if err != nil {
+				assert.ErrorIs(t, err, user.ErrCannotModifyData)
+			}
 		}
 	})
 }
