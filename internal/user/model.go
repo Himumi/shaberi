@@ -36,14 +36,17 @@ func (u *User) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
+const (
+	FieldID       = "ID"
+	FieldUsername = "Username"
+	FieldEmail    = "Email"
+	FieldHash     = "Hash"
+)
+
 var (
 	ErrEmptyUpdateData  = errors.New("Update data is empty")
 	ErrCannotModifyData = errors.New("Cannot to update this data")
 	ErrInvalidType      = errors.New("Invalid type")
-	FieldID             = "ID"
-	FieldUsername       = "Username"
-	FieldEmail          = "Email"
-	FieldHash           = "Hash"
 	ForbiddenFields     = []string{FieldID, FieldUsername, FieldEmail}
 )
 
