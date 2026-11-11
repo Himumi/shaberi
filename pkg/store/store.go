@@ -44,6 +44,10 @@ func (s *Store) DropTable(tables ...any) error {
 	return s.DB().Migrator().DropTable(tables...)
 }
 
+func (s *Store) Flush(ctx context.Context) error {
+	return s.RDB().FlushAll(ctx).Err()
+}
+
 // For testing purposes
 func (s *Store) SetSilentMode() {
 	if s.DB() != nil {

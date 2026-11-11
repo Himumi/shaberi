@@ -59,6 +59,76 @@ func TestMigrateAndDropTable(t *testing.T) {
 	}
 }
 
+func TestFlush(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		ctx := t.Context()
+		mr := miniredis.RunT(t)
+
+		rdb := redis.NewClient(&redis.Options{
+			Addr: mr.Addr(),
+		})
+		defer rdb.Close()
+
+		store := New(nil, rdb)
+
+		// Add test data
+		if err := rdb.Set(ctx, "key1", "value1", 0).Err(); err != nil {
+			t.Fatalf("failed to seed key1: %v", err)
+		}
+		if err := rdb.Set(ctx, "key2", "value2", 0).Err(); err != nil {
+			t.Fatalf("failed to seed key2: %v", err)
+		}
+
+		// Delete all redis data
+		if err := store.Flush(ctx); err != nil {
+			t.Fatalf("expected no error, got: %v", err)
+		}
+
+		// Verify redis data
+		keys, err := rdb.Keys(ctx, "*").Result()
+		if err != nil {
+			t.Fatalf("failed to fetch keys: %v", err)
+		}
+		if len(keys) != 0 {
+			t.Errorf("expected 0 keys after flush, got %d", len(keys))
+		}
+	})
+
+	t.Run("Cancelled context", func(t *testing.T) {
+		mr := miniredis.RunT(t)
+
+		rdb := redis.NewClient(&redis.Options{
+			Addr: mr.Addr(),
+		})
+		defer rdb.Close()
+
+		store := New(nil, rdb)
+
+		ctx, cancelCtx := context.WithCancel(t.Context())
+		cancelCtx()
+
+		err := store.Flush(ctx)
+		if err == nil {
+			t.Error("expected error when context is cancelled, got nil")
+		}
+	})
+
+	t.Run("Closed redis client", func(t *testing.T) {
+		mr := miniredis.RunT(t)
+		rdb := redis.NewClient(&redis.Options{
+			Addr: mr.Addr(),
+		})
+
+		store := New(nil, rdb)
+		_ = rdb.Close()
+
+		err := store.Flush(t.Context())
+		if err == nil {
+			t.Error("expected error on closed redis connection, got nil")
+		}
+	})
+}
+
 func TestSetSilentMode(t *testing.T) {
 	t.Run("both database and redis client active", func(t *testing.T) {
 		db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
